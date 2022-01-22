@@ -1,5 +1,17 @@
 <?php include 'db_connect.php'; ?>
-
+<?php
+    $statuses = ['For Approval', 'Confirmed', 'Released', 'Completed', 'Denied'];
+        $selected_ids = [0, 1, 2, 3, 4];
+        if (isset($_GET['status'])) {
+            $selected_ids = explode(',', $_GET['status']);
+            $selected_ids = array_filter($selected_ids, function ($status_id) use ($statuses) {
+                return !($status_id < 0 || !is_numeric($status_id) || $status_id >= count($statuses));
+            });
+            if (count($selected_ids) <= 0) {
+                $selected_ids = [-1];
+            }
+        }
+?>
 <div class="container-fluid">
 	<div class="col-lg-12">
 		<div class="card">
@@ -7,6 +19,29 @@
 				<large class="card-title">
 					<b>Loan List</b>
 					<button class="btn btn-primary btn-sm btn-block col-md-2 float-right" type="button" id="new_application"><i class="fa fa-plus"></i> Create New Application</button>
+					<div>
+						Filter by:
+							<ul style="display: flex; list-style: none;">
+								<?php
+                                    foreach ($statuses as $status_id => $status):
+                                ?>
+								<li style="margin-left: 5px;">
+									<div class="form-check">
+										<input 
+											<?php echo in_array($status_id, $selected_ids) ? 'checked' : ''; ?>
+											class="form-check-input filter" 
+											type="checkbox" 
+											value="" 
+											data-value="<?php echo $status_id; ?>"
+											id="defaultCheck-<?php echo $status_id; ?>"/>
+										<label class="form-check-label" for="defaultCheck-<?php echo $status_id; ?>">
+											<?php echo $status; ?>
+										</label>
+									</div>
+								</li>
+								<?php endforeach; ?>
+							</ul>
+					</div>
 				</large>
 				
 			</div>
@@ -42,7 +77,11 @@
                             while ($row = $plan->fetch_assoc()) {
                                 $plan_arr[$row['id']] = $row;
                             }
-                            $qry = $conn->query("SELECT l.*,concat(b.lastname,', ',b.firstname,' ',b.middlename)as name,lp.months, b.contact_no, b.address from loan_list l inner join borrowers b on b.id = l.borrower_id inner join loan_plan lp on l.plan_id = lp.id  order by id asc");
+
+                                                        // $q = "SELECT l.*,concat(b.lastname,', ',b.firstname,' ',b.middlename)as name,lp.months, b.contact_no, b.address from loan_list l inner join borrowers b on b.id = l.borrower_id inner join loan_plan lp on l.plan_id = lp.id order by id asc";
+                            $q = "SELECT l.*,concat(b.lastname,', ',b.firstname,' ',b.middlename)as name,lp.months, b.contact_no, b.address from loan_list l inner join borrowers b on b.id = l.borrower_id inner join loan_plan lp on l.plan_id = lp.id where l.status in (".implode(',', $selected_ids).') order by id asc';
+
+                            $qry = $conn->query($q);
                             while ($row = $qry->fetch_assoc()):
                                 $monthly = ($row['amount'] + ($row['amount'] * ($plan_arr[$row['plan_id']]['interest_percentage'] / 100))) / $plan_arr[$row['plan_id']]['months'];
                                 $penalty = $monthly * ($plan_arr[$row['plan_id']]['penalty_rate'] / 100);
@@ -148,6 +187,19 @@
 	})
 	$('.delete_loan').click(function(){
 		_conf("Are you sure to delete this data?","delete_loan",[$(this).attr('data-id')])
+	})
+	$('.filter').change(function(e) {
+		e.preventDefault()
+		let checkedIds = []
+		$('.filter').each(function(e) {
+			if($(this).is(":checked")) {
+				checkedIds.push($(this).data('value'));
+			}
+		})
+		if(checkedIds.length != 0) {
+
+		}
+		window.location.href = window.location.origin + window.location.pathname + "?page=loans&status="+checkedIds.join(',') 
 	})
 function delete_loan($id){
 		start_load()
